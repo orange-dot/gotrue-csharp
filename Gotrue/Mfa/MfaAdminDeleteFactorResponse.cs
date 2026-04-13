@@ -1,11 +1,11 @@
-﻿using System.Text.Json.Serialization;
+﻿using Newtonsoft.Json;
 
 namespace Supabase.Gotrue.Mfa
 {
 	public class MfaAdminDeleteFactorResponse
 	{
 		// Id of the factor that was successfully deleted
-		[JsonPropertyName("id")]
+		[JsonProperty("id")]
 		public string Id { get; set; }
 	}
 }

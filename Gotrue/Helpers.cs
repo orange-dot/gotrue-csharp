@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Web;
 using Newtonsoft.Json;
 using Supabase.Core.Attributes;
 using Supabase.Core.Extensions;
@@ -30,9 +29,13 @@ namespace Supabase.Gotrue
 			// ReSharper disable once StringLiteralTypo
 			const string chars = "abcdefghijklmnopqrstuvwxyz123456789";
 			var nonce = new char[128];
+			using var random = RandomNumberGenerator.Create();
+			var buffer = new byte[4];
 			for (var i = 0; i < nonce.Length; i++)
 			{
-				nonce[i] = chars[RandomNumberGenerator.GetInt32(0, chars.Length)];
+				random.GetBytes(buffer);
+				var index = BitConverter.ToUInt32(buffer, 0) % (uint)chars.Length;
+				nonce[i] = chars[(int)index];
 			}
 
 			return new string(nonce);
@@ -90,7 +93,7 @@ namespace Supabase.Gotrue
 			var result = new ProviderAuthState(builder.Uri);
 
 			var attr = Core.Helpers.GetMappedToAttr(provider);
-			var query = HttpUtility.ParseQueryString("");
+			var query = QueryStringCollection.Parse(string.Empty);
 			options ??= new SignInOptions();
 
 			if (options.FlowType == Constants.OAuthFlowType.PKCE)
@@ -135,7 +138,7 @@ namespace Supabase.Gotrue
 		internal static Uri AddQueryParams(string url, Dictionary<string, string> data)
 		{
 			var builder = new UriBuilder(url);
-			var query = HttpUtility.ParseQueryString(builder.Query);
+			var query = QueryStringCollection.Parse(builder.Query);
 
 			foreach (var param in data)
 				query[param.Key] = param.Value;
@@ -174,7 +177,7 @@ namespace Supabase.Gotrue
 		internal static async Task<BaseResponse> MakeRequest(HttpMethod method, string url, object? data = null, Dictionary<string, string>? headers = null)
 		{
 			var builder = new UriBuilder(url);
-			var query = HttpUtility.ParseQueryString(builder.Query);
+			var query = QueryStringCollection.Parse(builder.Query);
 
 			if (data != null && method == HttpMethod.Get)
 			{

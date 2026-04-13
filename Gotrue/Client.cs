@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Web;
 using Newtonsoft.Json;
 using Supabase.Gotrue.Exceptions;
 using Supabase.Gotrue.Interfaces;
@@ -502,12 +500,12 @@ namespace Supabase.Gotrue
 			if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
 				throw new GotrueException("`accessToken` and `refreshToken` cannot be empty.", NoSessionFound);
 
-			var payload = new JwtSecurityTokenHandler().ReadJwtToken(accessToken).Payload;
+			var payload = JwtPayloadDecoder.Decode(accessToken);
 
-			if (payload == null || payload.ValidTo == DateTime.MinValue)
+			if (payload.ValidToUtc == DateTime.MinValue)
 				throw new GotrueException("`accessToken`'s payload was of an unknown structure.", NoSessionFound);
 
-			if (payload.ValidTo < DateTime.UtcNow || forceAccessTokenRefresh)
+			if (payload.ValidToUtc < DateTime.UtcNow || forceAccessTokenRefresh)
 			{
 				var result = await _api.RefreshAccessToken(accessToken, refreshToken);
 
@@ -519,8 +517,8 @@ namespace Supabase.Gotrue
 				return CurrentSession;
 			}
 			
-			var iat = payload.IssuedAt;
-			var exp = payload.ValidTo;
+			var iat = payload.IssuedAtUtc;
+			var exp = payload.ValidToUtc;
 			var expiresIn = (long)(exp - iat).TotalSeconds;
 			
 			CurrentSession = new Session
@@ -545,8 +543,8 @@ namespace Supabase.Gotrue
 		public async Task<Session?> GetSessionFromUrl(Uri uri, bool storeSession = true)
 		{
 			var query = string.IsNullOrEmpty(uri.Fragment)
-				? HttpUtility.ParseQueryString(uri.Query)
-				: HttpUtility.ParseQueryString('?' + uri.Fragment.TrimStart('#'));
+				? QueryStringCollection.Parse(uri.Query)
+				: QueryStringCollection.Parse('?' + uri.Fragment.TrimStart('#'));
 
 			var errorDescription = query.Get("error_description");
 
@@ -722,7 +720,10 @@ namespace Supabase.Gotrue
 
 			try
 			{
-				var result = await _api.RefreshAccessToken(CurrentSession.AccessToken!, CurrentSession.RefreshToken!);
+				var session = CurrentSession ?? throw new GotrueException("No current session.", NoSessionFound);
+				var accessToken = session.AccessToken!;
+				var refreshToken = session.RefreshToken!;
+				var result = await _api.RefreshAccessToken(accessToken, refreshToken);
 				if (result == null || string.IsNullOrEmpty(result.AccessToken))
 					throw new GotrueException("Could not refresh token from provided session.", NoSessionFound);
 
@@ -896,16 +897,16 @@ namespace Supabase.Gotrue
 			if (CurrentSession == null || string.IsNullOrEmpty(CurrentSession.AccessToken))
 				throw new GotrueException("Not Logged in.", NoSessionFound);
 
-			var payload = new JwtSecurityTokenHandler().ReadJwtToken(CurrentSession.AccessToken).Payload;
+			var payload = JwtPayloadDecoder.Decode(CurrentSession.AccessToken);
 
-			if (payload == null || payload.ValidTo == DateTime.MinValue)
+			if (payload.ValidToUtc == DateTime.MinValue)
 				throw new GotrueException("`accessToken`'s payload was of an unknown structure.", NoSessionFound);
 
 			AuthenticatorAssuranceLevel? currentLevel = null;
 
-			if (payload.ContainsKey("aal"))
+			if (!string.IsNullOrEmpty(payload.AuthenticatorAssuranceLevel))
 			{
-				currentLevel = Enum.TryParse(payload["aal"].ToString(), out AuthenticatorAssuranceLevel parsedLevel) ? parsedLevel : (AuthenticatorAssuranceLevel?)null;
+				currentLevel = Enum.TryParse(payload.AuthenticatorAssuranceLevel, out AuthenticatorAssuranceLevel parsedLevel) ? parsedLevel : (AuthenticatorAssuranceLevel?)null;
 			}
 
 			AuthenticatorAssuranceLevel? nextLevel = currentLevel;
@@ -916,13 +917,11 @@ namespace Supabase.Gotrue
 				nextLevel = AuthenticatorAssuranceLevel.aal2;
 			}
 
-			var currentAuthenticationMethods = payload.Amr.Select(x => JsonConvert.DeserializeObject<AmrEntry>(x));
-
 			var response = new MfaGetAuthenticatorAssuranceLevelResponse
 			{
 				CurrentLevel = currentLevel,
 				NextLevel = nextLevel,
-				CurrentAuthenticationMethods = currentAuthenticationMethods.ToArray()
+				CurrentAuthenticationMethods = payload.CurrentAuthenticationMethods
 			};
 
 			return Task.FromResult(response);

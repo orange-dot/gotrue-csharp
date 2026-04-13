@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Web;
-using Newtonsoft.Json;
 using Supabase.Gotrue.Exceptions;
 using Supabase.Gotrue.Interfaces;
 using Supabase.Gotrue.Mfa;
@@ -96,16 +93,16 @@ namespace Supabase.Gotrue
 
 			if (user != null)
 			{
-				var payload = new JwtSecurityTokenHandler().ReadJwtToken(jwt).Payload;
+				var payload = JwtPayloadDecoder.Decode(jwt);
 
-				if (payload == null || payload.ValidTo == DateTime.MinValue)
+				if (payload.ValidToUtc == DateTime.MinValue)
 					throw new Exception("`accessToken`'s payload was of an unknown structure.");
 
 				AuthenticatorAssuranceLevel? currentLevel = null;
 
-				if (payload.ContainsKey("aal"))
+				if (!string.IsNullOrEmpty(payload.AuthenticatorAssuranceLevel))
 				{
-					currentLevel = Enum.TryParse(payload["aal"].ToString(), out AuthenticatorAssuranceLevel parsedLevel) ? parsedLevel : (AuthenticatorAssuranceLevel?)null;
+					currentLevel = Enum.TryParse(payload.AuthenticatorAssuranceLevel, out AuthenticatorAssuranceLevel parsedLevel) ? parsedLevel : (AuthenticatorAssuranceLevel?)null;
 				}
 
 				AuthenticatorAssuranceLevel? nextLevel = currentLevel;
@@ -116,13 +113,11 @@ namespace Supabase.Gotrue
 					nextLevel = AuthenticatorAssuranceLevel.aal2;
 				}
 
-				var currentAuthenticationMethods = payload.Amr.Select(x => JsonConvert.DeserializeObject<AmrEntry>(x));
-
 				var response = new MfaGetAuthenticatorAssuranceLevelResponse
 				{
 					CurrentLevel = currentLevel,
 					NextLevel = nextLevel,
-					CurrentAuthenticationMethods = currentAuthenticationMethods.ToArray()
+					CurrentAuthenticationMethods = payload.CurrentAuthenticationMethods
 				};
 
 				return response;
@@ -330,7 +325,7 @@ namespace Supabase.Gotrue
 		/// <inheritdoc />
 		public async Task<Session?> GetSessionFromUrl(Uri uri, StatelessClientOptions options)
 		{
-			var query = HttpUtility.ParseQueryString(uri.Query);
+			var query = QueryStringCollection.Parse(uri.Query);
 
 			var errorDescription = query.Get("error_description");
 

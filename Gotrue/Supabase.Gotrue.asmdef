@@ -1,0 +1,16 @@
+{
+  "name": "Supabase.Gotrue",
+  "rootNamespace": "Supabase.Gotrue",
+  "references": [
+    "Supabase.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

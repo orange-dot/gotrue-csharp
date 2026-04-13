@@ -1,5 +1,4 @@
 using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.Threading;
 using Supabase.Gotrue.Exceptions;
 using Supabase.Gotrue.Interfaces;

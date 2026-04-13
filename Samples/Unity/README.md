@@ -1,19 +1,15 @@
+# GoTrue Unity Notes
 
-To use supabase-csharp with Unity, you will want to install the following:
+The `Gotrue/` source folder now acts as a Unity package root for the auth client in this prototype branch.
 
-- UniTask, via Package Manager. Use https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask as the Git URL. Version 2.3.3 as of this writing. This package is required to support async/await integration in Unity.
-- Newtonsoft Json, via Package Manager. Use Add Package by Name, and enter com.unity.nuget.newtonsoft-json as the name. Version 3.2.1 as of this writing. You must use this version and not the version available on npm as this version is heavily customized by Unity to work property with IL2CPP.
+Recommended package flow:
 
-You will also need to install the following .NET Standard 2.0 DLLs:
+1. Add `modules/core-csharp/Core/package.json`
+2. Add `modules/gotrue-csharp/Gotrue/package.json`
+3. Add `unity/OrangeDot.Supabase.Unity/package.json`
 
-- MimeMapping
-- System.Reactive
-- System.Threading.Channels
-- System.Threading.Tasks.Extensions
-- Websocket.Client
+The higher-level Unity sample and composition layer now live in:
 
-You can download these directly from the npm directory, or you can grab the supporting-dlls.zip file in this directory.
+- [unity/OrangeDot.Supabase.Unity](/home/dev/orange-dot-supabase-sdk/unity/OrangeDot.Supabase.Unity/README.md)
 
-The UnitySession.cs provides an implementation of GoTrue session persistence compatible with
-Unity. Note that PlayerPrefs.SetString won't work, as it fails if not called from
-the main UI thread.
+`UnitySession.cs` stays here as a legacy reference for custom persistence approaches, but the branch now uses `UnitySessionPersistence` from the Unity package instead of the older “copy supporting DLLs by hand” story.
